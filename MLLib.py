@@ -10,13 +10,11 @@ class MLLib:
         return self.Betas
 
     def train_test_split(self, percent=75):
-           # if isinstance(self.Y, pd.Series) or isinstance(self.X, pd.DataFrame):
-            #    print("WARNING: Data isn't encoded. Auto encoding...")
-             #   self.encode()
+            if isinstance(self.Y, pd.Series) or isinstance(self.X, pd.DataFrame):
+                print("WARNING: Data isn't encoded. Auto encoding...")
+                self.encode()
             if percent <= 0 or percent >= 100:
                 raise ValueError("Percentage of training set must be between 0 and 100.")
-                
-
             else:
                 try:
                     rng = np.random.default_rng()
@@ -24,50 +22,16 @@ class MLLib:
                     indices = rng.choice(len(self.X), size=training_size, replace=False)
                     alt_indices = np.setdiff1d(np.arange(len(self.X)), indices)
 
-                    testing_setX  = self.X.iloc[alt_indices].reset_index(drop=True)
-                    testing_setY  = self.Y.iloc[alt_indices].reset_index(drop=True)
-                    training_setX = self.X.iloc[indices].reset_index(drop=True)
-                    training_setY = self.Y.iloc[indices].reset_index(drop=True)
+                    testing_setX  = self.X.iloc[alt_indices]
+                    testing_setY  = self.Y.iloc[alt_indices]
+                    training_setX = self.X.iloc[indices]
+                    training_setY = self.Y.iloc[indices]
 
                     return training_setX, training_setY, testing_setX, testing_setY
 
                 except TypeError:
                     print("Remember to encode your data!")
 
-    def linreg_train(self, x_train, y_train):
-        arr = np.linalg.pinv(x_train.T @ x_train) @ (x_train.T @ y_train)
-        self.Betas = arr
-        return arr
-    
-    def linreg_predict(self, x_val):
-        try:
-            return self.Betas @ x_val
-        except ValueError:
-            return (f"ERROR: Improper dimensions. There are {len(self.Betas)} predictors but only {len(x_val)} inputs were provided.")
-        except AttributeError:
-            return ("ERROR: No betas were provided. Call the train method first to avoid this issue.")
-    
-    def linreg_ridge_train(self, x_train, y_train, lamb):
-        identity_m = np.identity(x_train.shape[1] )
-        arr = np.linalg.pinv(x_train.T @ x_train + lamb * (identity_m)) @ (x_train.T @ y_train)
-        self.Betas = arr
-        return arr
-    
-    def linreg_lasso_train(self, x_train, y_train, lamb, iter, learning_rate, tol):
-        self.Betas = np.zeros(x_train.shape[1])  
-        arr = self.Betas
-
-        for _ in range(iter):
-            r = y_train - x_train @ arr
-            grad = -x_train.T @ r / (x_train.shape[0]) 
-            temp_beta = arr - learning_rate * grad
-            arr = np.sign(temp_beta) * np.maximum(np.abs(temp_beta) - learning_rate * lamb, 0)
-
-            if np.max(np.abs(arr - temp_beta)) < tol:
-                break
-        self.Betas = arr
-        return
-        
     def k_fold_cross_valid_lambda(self, k):
         lambdas = np.logspace(-4, 4, 10)
         error_matrix = np.zeros((k, len(lambdas)))
@@ -89,8 +53,6 @@ class MLLib:
         min_idx = np.unravel_index(np.argmin(error_matrix), error_matrix.shape)
         return min_idx[1]
     
-
-
     def mse(self, x_test, y_test):
         try:
             temp_total = 0
@@ -100,26 +62,6 @@ class MLLib:
         
             mse = temp_total / len(x_test)
             return mse
-        except AttributeError:
-            return ("ERROR: No betas were provided. Call the train method first to avoid this issue.")
-    
-    def sigmoid(self, z):
-         return 1 / (1 + np.exp(-z))
-
-    def logreg_train(self, X_train, y_train, iterations, learning_rate):
-        self.Betas = np.zeros(X_train.shape[1])  
-        for i in range(iterations):
-            prob_pred = self.sigmoid(np.dot(X_train, self.Betas))
-            gradient = X_train.T @ (prob_pred - y_train) / X_train.shape[0]    
-            self.Betas -= learning_rate * gradient  
-
-        return self.Betas
-
-    def logreg_predict(self, x_val):
-        try:
-            return self.sigmoid(np.dot(x_val, self.Betas))
-        except ValueError:
-            return (f"ERROR: Improper dimensions. There are {len(self.Betas)} predictors but only {len(x_val)} inputs were provided.")
         except AttributeError:
             return ("ERROR: No betas were provided. Call the train method first to avoid this issue.")
     
@@ -152,7 +94,62 @@ class MLLib:
 
         return df.to_numpy()
     
+class LogReg(MLLib):
+    def sigmoid(self, z):
+         return 1 / (1 + np.exp(-z))
 
+    def logreg_train(self, X_train, y_train, iterations, learning_rate):
+        self.Betas = np.zeros(X_train.shape[1])  
+        for i in range(iterations):
+            prob_pred = self.sigmoid(np.dot(X_train, self.Betas))
+            gradient = X_train.T @ (prob_pred - y_train) / X_train.shape[0]    
+            self.Betas -= learning_rate * gradient  
+
+        return self.Betas
+
+    def logreg_predict(self, x_val):
+        try:
+            return self.sigmoid(np.dot(x_val, self.Betas))
+        except ValueError:
+            return (f"ERROR: Improper dimensions. There are {len(self.Betas)} predictors but only {len(x_val)} inputs were provided.")
+        except AttributeError:
+            return ("ERROR: No betas were provided. Call the train method first to avoid this issue.")
+
+class LinReg(MLLib):
+    def linreg_train(self, x_train, y_train):
+        arr = np.linalg.pinv(x_train.T @ x_train) @ (x_train.T @ y_train)
+        self.Betas = arr
+        print("hi")
+        return arr
+    
+    def linreg_predict(self, x_val):
+        try:
+            return self.Betas @ x_val
+        except ValueError:
+            return (f"ERROR: Improper dimensions. There are {len(self.Betas)} predictors but only {len(x_val)} inputs were provided.")
+        except AttributeError:
+            return ("ERROR: No betas were provided. Call the train method first to avoid this issue.")
+    
+    def linreg_ridge_train(self, x_train, y_train, lamb):
+        identity_m = np.identity(x_train.shape[1] )
+        arr = np.linalg.pinv(x_train.T @ x_train + lamb * (identity_m)) @ (x_train.T @ y_train)
+        self.Betas = arr
+        return arr
+    
+    def linreg_lasso_train(self, x_train, y_train, lamb, iter, learning_rate, tol):
+        self.Betas = np.zeros(x_train.shape[1])  
+        arr = self.Betas
+
+        for _ in range(iter):
+            r = y_train - x_train @ arr
+            grad = -x_train.T @ r / (x_train.shape[0]) 
+            temp_beta = arr - learning_rate * grad
+            arr = np.sign(temp_beta) * np.maximum(np.abs(temp_beta) - learning_rate * lamb, 0)
+
+            if np.max(np.abs(arr - temp_beta)) < tol:
+                break
+        self.Betas = arr
+        return    
 
         
 

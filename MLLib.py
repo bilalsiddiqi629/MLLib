@@ -52,8 +52,22 @@ class MLLib:
         arr = np.linalg.pinv(x_train.T @ x_train + lamb * (identity_m)) @ (x_train.T @ y_train)
         self.Betas = arr
         return arr
-
     
+    def linreg_lasso_train(self, x_train, y_train, lamb, iter, learning_rate, tol):
+        self.Betas = np.zeros(x_train.shape[1])  
+        arr = self.Betas
+
+        for _ in range(iter):
+            r = y_train - x_train @ arr
+            grad = -x_train.T @ r / (x_train.shape[0]) 
+            temp_beta = arr - learning_rate * grad
+            arr = np.sign(temp_beta) * np.maximum(np.abs(temp_beta) - learning_rate * lamb, 0)
+
+            if np.max(np.abs(arr - temp_beta)) < tol:
+                break
+        self.Betas = arr
+        return
+        
     def k_fold_cross_valid_lambda(self, k):
         lambdas = np.logspace(-4, 4, 10)
         error_matrix = np.zeros((k, len(lambdas)))
@@ -73,7 +87,9 @@ class MLLib:
                 error_matrix[x, y] = np.sum((Vy - Vx @ beta_lamb) ** 2)
         
         min_idx = np.unravel_index(np.argmin(error_matrix), error_matrix.shape)
-        return lambdas[min_idx[1]]
+        return min_idx[1]
+    
+
 
     def mse(self, x_test, y_test):
         try:
@@ -110,7 +126,6 @@ class MLLib:
     def standard_scalar(self, Xinput):
         return (Xinput - np.mean(Xinput, axis=0)) / np.std(Xinput, axis=0)
 
-    
     def standard_imputer(self, Xinput, method = 'mean'):
         if method == 'mean':
             replace = np.nanmean(Xinput)
